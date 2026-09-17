@@ -1,0 +1,28 @@
+{
+  "name": "rigsight",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Real-time drilling telemetry dashboard + anomaly-detection API for SEBL_002 / rig PHR-026",
+  "scripts": {
+    "etl": "tsx etl/run.ts",
+    "dev": "next dev",
+    "build": "npm run etl && next build",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "next": "^16.3.5",
+    "react": "19.1.1",
+    "react-dom": "19.1.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.13",
+    "@types/node": "^22.10.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "tailwindcss": "^4.1.13",
+    "tsx": "^4.20.0",
+    "typescript": "^5.7.0"
+  }
+}
