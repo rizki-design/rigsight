@@ -10,3 +10,6 @@ next-env.d.ts
 
 # Duplicate of data/raw/ — the pack as originally delivered.
 case-study-data-pack/
+
+# Personal study aid, not part of the deliverable — kept out of the public repo.
+STUDY-SESSION-PROMPT.md
