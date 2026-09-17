@@ -27,8 +27,13 @@ npm install && npm run build && npm start
 Then open <http://localhost:3000>.
 
 `npm run build` runs the ETL first (`npm run etl`), which turns the three raw CSVs in
-`data/raw/` into cleaned, analysed artefacts in `data/processed/`. Those artefacts are
-committed, so the app runs immediately after a clone. Takes about 10 seconds.
+`data/raw/` into cleaned, analysed artefacts in `data/processed/`. The whole thing takes about
+20 seconds from a clean clone, and reproduces every number in this README exactly - the ETL is
+deterministic apart from a build timestamp in `manifest.json`.
+
+Those artefacts are also committed, for two reasons: `npm run dev` works without a separate ETL
+step, and a change to a cleaning rule shows up as a reviewable diff rather than having to be
+taken on trust.
 
 For development with hot reload:
 
