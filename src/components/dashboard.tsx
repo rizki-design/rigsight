@@ -643,6 +643,12 @@ function Anomalies({ data }: { data: ClientPayload }) {
 function Quality({ data }: { data: ClientPayload }) {
   const sevColor = { critical: "var(--alarm)", warn: "var(--warn)", info: "var(--muted)" } as const;
 
+  // Most severe first. The pipeline emits these in the order the cleaning happens,
+  // which is the right order for reading the code and the wrong order for reading
+  // the page - it buried a CRITICAL finding below three WARNs.
+  const rank = { critical: 0, warn: 1, info: 2 } as const;
+  const findings = [...data.quality].sort((a, b) => rank[a.severity] - rank[b.severity]);
+
   return (
     <div className="space-y-3">
       <div className="panel p-3">
@@ -657,7 +663,7 @@ function Quality({ data }: { data: ClientPayload }) {
         </p>
       </div>
 
-      {data.quality.map((q) => (
+      {findings.map((q) => (
         <div key={q.id} className="panel p-3">
           <div className="flex flex-wrap items-center gap-2 mb-1">
             <span className="text-[10px] px-1.5 py-0.5 rounded uppercase tracking-wide font-semibold" style={{ background: sevColor[q.severity], color: "#0a0e14" }}>
