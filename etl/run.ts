@@ -23,7 +23,6 @@ const ROOT = process.cwd();
 const RAW = join(ROOT, "data", "raw");
 const OUT = join(ROOT, "data", "processed");
 
-const MINUTE = 60_000;
 const HOUR = 3_600_000;
 
 function write(name: string, data: unknown) {

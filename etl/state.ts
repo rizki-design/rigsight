@@ -204,7 +204,7 @@ export function smooth(states: OpState[], window = 7, minRun = 3): OpState[] {
  * enormous depth jump the instant the feed returns.
  */
 function buildContexts(minutes: MinuteRecord[], th: StateThresholds): MinuteContext[] {
-  return minutes.map((m, i) => {
+  return minutes.map((_, i) => {
     // Short centred window for hole advance.
     let lo = i;
     let hi = i;

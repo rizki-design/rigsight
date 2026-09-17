@@ -78,7 +78,6 @@ export function TimeSeries({
   cursor,
   onHover,
   markers = [],
-  yFloorZero = false,
 }: {
   series: { points: Pt[]; color?: string; label: string }[];
   width?: number;
@@ -91,7 +90,6 @@ export function TimeSeries({
   cursor?: number | null;
   onHover?: (t: number | null) => void;
   markers?: { t: number; color: string; label?: string }[];
-  yFloorZero?: boolean;
 }) {
   const ref = useRef<SVGSVGElement>(null);
 
@@ -107,7 +105,6 @@ export function TimeSeries({
       lo = 0;
       hi = 1;
     }
-    if (yFloorZero) lo = Math.min(lo, 0);
     const padY = (hi - lo) * 0.08 || 1;
     lo -= padY;
     hi += padY;
@@ -120,7 +117,7 @@ export function TimeSeries({
       return invertY ? PAD.top + frac * h : PAD.top + (1 - frac) * h;
     };
     return { xs, ys, tMin, tMax, yMin: lo, yMax: hi };
-  }, [series, width, height, band, invertY, domain, yFloorZero]);
+  }, [series, width, height, band, invertY, domain]);
 
   /**
    * Build the path in segments, starting a new one at every null point. This is what

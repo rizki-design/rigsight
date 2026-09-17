@@ -376,7 +376,7 @@ function snippet(text: string, terms: string[], width = 240): string {
  * fluent summary; the citations are identical either way, because they come from
  * retrieval rather than from the model.
  */
-export function composeAnswer(query: string, hits: SearchHit[]): string {
+export function composeAnswer(hits: SearchHit[]): string {
   if (!hits.length) {
     return "Nothing in the daily drilling reports matches that. Try naming an activity code (EQRPR, TOH, DRLDD), a well (SEBL_001, SEBL_002), a hole size, or a depth range.";
   }

@@ -54,7 +54,7 @@ export async function POST(req: Request) {
   const hits = search(index, query, body.filters ?? {}, limit);
   const retrievalMs = Date.now() - t0;
 
-  const grounded = composeAnswer(query, hits);
+  const grounded = composeAnswer(hits);
   let answer = grounded;
   let mode: "grounded" | "synthesised" = "grounded";
   let modelNote: string | undefined;
