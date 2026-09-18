@@ -53,10 +53,15 @@ export default function Dashboard({ data }: { data: ClientPayload }) {
   const deferredIdx = useDeferredValue(cursorIdx);
   const current = data.cockpit[deferredIdx];
   const cursorT = current?.[0] ?? data.meta.to;
+  // The header (readouts + the stick-slip banner) previews whatever moment is under
+  // the mouse, not just the committed scrub position - otherwise hovering over a red
+  // alarm line on the chart would move the preview cursor there but never show the
+  // alert it belongs to.
+  const previewCurrent = hover !== null ? data.cockpit[nearestCockpitIndex(data.cockpit, hover)] : current;
 
   return (
     <div className="min-h-screen" style={{ background: "var(--bg)" }}>
-      <Header data={data} current={current} />
+      <Header data={data} current={previewCurrent} />
 
       <nav className="sticky top-0 z-20 border-b" style={{ background: "var(--bg)", borderColor: "var(--line)" }}>
         <div className="mx-auto max-w-[1400px] px-4 flex gap-1 overflow-x-auto">
