@@ -96,7 +96,7 @@ export default function Dashboard({ data }: { data: ClientPayload }) {
             setHover={setHover}
           />
         )}
-        {tab === "telemetry" && <Telemetry data={data} cursorT={cursorT} hover={hover} setHover={setHover} />}
+        {tab === "telemetry" && <Telemetry data={data} cursorT={cursorT} setCursorIdx={setCursorIdx} hover={hover} setHover={setHover} />}
         {tab === "anomalies" && <Anomalies data={data} />}
         {tab === "quality" && <Quality data={data} />}
         {tab === "assistant" && <DdrAssistant meta={data.meta} />}
@@ -239,6 +239,19 @@ const fmtNum = (v: number | null | undefined, d = 0) =>
 // in charts.tsx), so a "day" is a UTC calendar day - this stays consistent with that.
 const DAY_MS = 86_400_000;
 const dayStart = (t: number) => Math.floor(t / DAY_MS) * DAY_MS;
+
+/** Index of the cockpit row closest to t - cockpit is sorted ascending by timestamp. */
+function nearestCockpitIndex(cockpit: Cockpit[], t: number): number {
+  let lo = 0;
+  let hi = cockpit.length - 1;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (cockpit[mid][0] < t) lo = mid + 1;
+    else hi = mid;
+  }
+  if (lo > 0 && Math.abs(cockpit[lo - 1][0] - t) <= Math.abs(cockpit[lo][0] - t)) return lo - 1;
+  return lo;
+}
 
 /**
  * Day + operational-state filtering, shared by every tab that shows the depth/
@@ -468,6 +481,21 @@ function Overview({
     [markers, selectedDays],
   );
 
+  // Clicking the chart or ribbon jumps the actual replay position there, not just a
+  // hover preview.
+  const seekTo = useCallback(
+    (t: number) => {
+      setPlaying(false);
+      setHover(null);
+      setCursorIdx(nearestCockpitIndex(data.cockpit, t));
+    },
+    [data.cockpit, setCursorIdx, setHover],
+  );
+  // While playing, a mouse that's merely resting over the chart from an earlier hover
+  // would otherwise freeze the cursor line at that stale position instead of tracking
+  // the scrubber - so ignore hover and always show the true replay position.
+  const chartCursor = playing ? cursorT : (hover ?? cursorT);
+
   // The replay scrubber is scoped to whichever days are picked, so its range - and how
   // far a full scrub actually travels - matches what the chart above is showing.
   const windowRange = useMemo(() => {
@@ -534,8 +562,9 @@ function Overview({
           band={false}
           unit="ft"
           timeDomain={[viewWindow.from, viewWindow.to]}
-          cursor={hover ?? cursorT}
+          cursor={chartCursor}
           onHover={setHover}
+          onSeek={seekTo}
           markers={chartMarkers}
         />
 
@@ -545,8 +574,9 @@ function Overview({
             from={viewWindow.from}
             to={viewWindow.to}
             colors={ribbonColors}
-            cursor={hover ?? cursorT}
+            cursor={chartCursor}
             onHover={setHover}
+            onSeek={seekTo}
           />
           <StatesFilterRow selectedStates={selectedStates} setSelectedStates={setSelectedStates} toggleState={toggleState} viewStateMinutes={viewStateMinutes} />
         </div>
@@ -852,11 +882,13 @@ function AgreementPanel({ data }: { data: ClientPayload }) {
 function Telemetry({
   data,
   cursorT,
+  setCursorIdx,
   hover,
   setHover,
 }: {
   data: ClientPayload;
   cursorT: number;
+  setCursorIdx: Dispatch<SetStateAction<number>>;
   hover: number | null;
   setHover: (t: number | null) => void;
 }) {
@@ -874,6 +906,14 @@ function Telemetry({
     viewStateMinutes,
     ribbonColors,
   } = useDayStateFilter(data);
+
+  const seekTo = useCallback(
+    (t: number) => {
+      setHover(null);
+      setCursorIdx(nearestCockpitIndex(data.cockpit, t));
+    },
+    [data.cockpit, setCursorIdx, setHover],
+  );
 
   const charts: { key: keyof ClientPayload["series"]; title: string; unit: string; color: string; def: string; note?: string; band?: boolean }[] = [
     {
@@ -943,7 +983,7 @@ function Telemetry({
     <div className="space-y-3">
       <div className="panel p-3">
         <DaysFilterRow dayKeys={dayKeys} selectedDays={selectedDays} setSelectedDays={setSelectedDays} toggleDay={toggleDay} />
-        <StateRibbon spans={viewSpans} from={viewWindow.from} to={viewWindow.to} colors={ribbonColors} cursor={hover ?? cursorT} onHover={setHover} height={18} />
+        <StateRibbon spans={viewSpans} from={viewWindow.from} to={viewWindow.to} colors={ribbonColors} cursor={hover ?? cursorT} onHover={setHover} onSeek={seekTo} height={18} />
         <StatesFilterRow selectedStates={selectedStates} setSelectedStates={setSelectedStates} toggleState={toggleState} viewStateMinutes={viewStateMinutes} />
         <div className="text-[10px] px-[46px] mt-1" style={{ color: "var(--dim)" }}>
           Operational state, aligned to every chart below.
@@ -974,6 +1014,7 @@ function Telemetry({
             timeDomain={[viewWindow.from, viewWindow.to]}
             cursor={hover ?? cursorT}
             onHover={setHover}
+            onSeek={seekTo}
           />
         </div>
       ))}

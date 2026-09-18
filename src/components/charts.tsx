@@ -96,6 +96,7 @@ export function TimeSeries({
   timeDomain,
   cursor,
   onHover,
+  onSeek,
   markers = [],
 }: {
   series: { points: Pt[]; color?: string; label: string }[];
@@ -113,6 +114,8 @@ export function TimeSeries({
   timeDomain?: [number, number];
   cursor?: number | null;
   onHover?: (t: number | null) => void;
+  /** Click-to-seek: fires with the timestamp under the click. */
+  onSeek?: (t: number) => void;
   markers?: { t: number; color: string; label?: string }[];
 }) {
   const [ref, width] = useMeasuredWidth<SVGSVGElement>(propWidth);
@@ -184,16 +187,24 @@ export function TimeSeries({
     return segs.join(" ");
   };
 
-  const handleMove = useCallback(
-    (e: React.MouseEvent<SVGSVGElement>) => {
-      if (!onHover || !ref.current) return;
+  const timeAt = useCallback(
+    (e: React.MouseEvent<SVGSVGElement>): number | null => {
+      if (!ref.current) return null;
       const rect = ref.current.getBoundingClientRect();
       const x = ((e.clientX - rect.left) / rect.width) * width;
       const frac = (x - PAD.left) / (width - PAD.left - PAD.right);
-      if (frac < 0 || frac > 1) return onHover(null);
-      onHover(tMin + frac * (tMax - tMin));
+      if (frac < 0 || frac > 1) return null;
+      return tMin + frac * (tMax - tMin);
     },
-    [onHover, tMin, tMax, width],
+    [tMin, tMax, width],
+  );
+  const handleMove = useCallback((e: React.MouseEvent<SVGSVGElement>) => onHover?.(timeAt(e)), [onHover, timeAt]);
+  const handleClick = useCallback(
+    (e: React.MouseEvent<SVGSVGElement>) => {
+      const t = timeAt(e);
+      if (t !== null) onSeek?.(t);
+    },
+    [onSeek, timeAt],
   );
 
   const ticks = niceTicks(yMin, yMax, 4);
@@ -209,9 +220,10 @@ export function TimeSeries({
       ref={ref}
       viewBox={`0 0 ${width} ${height}`}
       className="w-full"
-      style={{ height }}
+      style={{ height, cursor: onSeek ? "pointer" : undefined }}
       onMouseMove={handleMove}
       onMouseLeave={() => onHover?.(null)}
+      onClick={handleClick}
     >
       {ticks.map((v) => (
         <g key={v}>
@@ -264,6 +276,7 @@ export function StateRibbon({
   height = 22,
   cursor,
   onHover,
+  onSeek,
   colors,
 }: {
   spans: { state: string; from: number; to: number }[];
@@ -273,26 +286,32 @@ export function StateRibbon({
   height?: number;
   cursor?: number | null;
   onHover?: (t: number | null) => void;
+  /** Click-to-seek: fires with the timestamp under the click. */
+  onSeek?: (t: number) => void;
   colors: Record<string, string>;
 }) {
   const [ref, width] = useMeasuredWidth<SVGSVGElement>(propWidth);
   const w = width - PAD.left - PAD.right;
   const xs = (t: number) => PAD.left + ((t - from) / Math.max(to - from, 1)) * w;
+  const timeAt = (e: React.MouseEvent<SVGSVGElement>): number | null => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * width;
+    const frac = (x - PAD.left) / w;
+    return frac < 0 || frac > 1 ? null : from + frac * (to - from);
+  };
 
   return (
     <svg
       ref={ref}
       viewBox={`0 0 ${width} ${height}`}
       className="w-full"
-      style={{ height }}
-      onMouseMove={(e) => {
-        if (!onHover) return;
-        const rect = e.currentTarget.getBoundingClientRect();
-        const x = ((e.clientX - rect.left) / rect.width) * width;
-        const frac = (x - PAD.left) / w;
-        onHover(frac < 0 || frac > 1 ? null : from + frac * (to - from));
-      }}
+      style={{ height, cursor: onSeek ? "pointer" : undefined }}
+      onMouseMove={(e) => onHover?.(timeAt(e))}
       onMouseLeave={() => onHover?.(null)}
+      onClick={(e) => {
+        const t = timeAt(e);
+        if (t !== null) onSeek?.(t);
+      }}
     >
       <rect x={PAD.left} y={2} width={w} height={height - 4} fill="var(--nodata)" rx={3} />
       {spans.map((s, i) => {
