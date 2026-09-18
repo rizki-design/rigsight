@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useRef, useCallback } from "react";
+import { useMemo, useState, useRef, useCallback, useEffect } from "react";
 
 /**
  * ---------------------------------------------------------------------------
@@ -33,7 +33,25 @@ export interface Pt {
   n: number;
 }
 
-const PAD = { top: 10, right: 12, bottom: 20, left: 46 };
+export const PAD = { top: 10, right: 12, bottom: 20, left: 46 };
+
+/** Tracks an element's rendered CSS width so a chart can fill its real container
+ * instead of the viewBox's fallback pixel size (which only matches by coincidence). */
+function useMeasuredWidth<T extends Element>(fallback: number) {
+  const ref = useRef<T>(null);
+  const [measured, setMeasured] = useState<number | null>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const ro = new ResizeObserver((entries) => {
+      const w = entries[0]?.contentRect.width;
+      if (w) setMeasured(Math.round(w));
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  return [ref, measured ?? fallback] as const;
+}
 
 function niceTicks(lo: number, hi: number, count = 4): number[] {
   if (!Number.isFinite(lo) || !Number.isFinite(hi) || lo === hi) return [lo];
@@ -68,13 +86,14 @@ export const fmtStamp = (t: number) => `${fmtDay(t)} ${fmtClock(t)}`;
  */
 export function TimeSeries({
   series,
-  width = 900,
+  width: propWidth = 900,
   height = 180,
   color = "#38bdf8",
   band = true,
   invertY = false,
   unit = "",
   domain,
+  timeDomain,
   cursor,
   onHover,
   markers = [],
@@ -87,17 +106,22 @@ export function TimeSeries({
   invertY?: boolean;
   unit?: string;
   domain?: [number, number];
+  /** Overrides the x-axis range instead of deriving it from the points' own min/max -
+   * use this whenever the chart must line up with another component (e.g. the state
+   * ribbon) sharing the same nominal window, since a feed gap at the edge of that
+   * window can leave the actual first/last point short of it. */
+  timeDomain?: [number, number];
   cursor?: number | null;
   onHover?: (t: number | null) => void;
   markers?: { t: number; color: string; label?: string }[];
 }) {
-  const ref = useRef<SVGSVGElement>(null);
+  const [ref, width] = useMeasuredWidth<SVGSVGElement>(propWidth);
 
   const { xs, ys, tMin, tMax, yMin, yMax } = useMemo(() => {
     const all = series.flatMap((s) => s.points);
     const withVal = all.filter((p) => p.mean !== null);
-    const tMin = Math.min(...all.map((p) => p.t));
-    const tMax = Math.max(...all.map((p) => p.t));
+    const tMin = timeDomain ? timeDomain[0] : Math.min(...all.map((p) => p.t));
+    const tMax = timeDomain ? timeDomain[1] : Math.max(...all.map((p) => p.t));
 
     let lo = domain ? domain[0] : Math.min(...withVal.map((p) => (band ? (p.min ?? p.mean!) : p.mean!)));
     let hi = domain ? domain[1] : Math.max(...withVal.map((p) => (band ? (p.max ?? p.mean!) : p.mean!)));
@@ -117,7 +141,7 @@ export function TimeSeries({
       return invertY ? PAD.top + frac * h : PAD.top + (1 - frac) * h;
     };
     return { xs, ys, tMin, tMax, yMin: lo, yMax: hi };
-  }, [series, width, height, band, invertY, domain]);
+  }, [series, width, height, band, invertY, domain, timeDomain]);
 
   /**
    * Build the path in segments, starting a new one at every null point. This is what
@@ -236,7 +260,7 @@ export function StateRibbon({
   spans,
   from,
   to,
-  width = 900,
+  width: propWidth = 900,
   height = 22,
   cursor,
   onHover,
@@ -251,17 +275,19 @@ export function StateRibbon({
   onHover?: (t: number | null) => void;
   colors: Record<string, string>;
 }) {
+  const [ref, width] = useMeasuredWidth<SVGSVGElement>(propWidth);
   const w = width - PAD.left - PAD.right;
   const xs = (t: number) => PAD.left + ((t - from) / Math.max(to - from, 1)) * w;
 
   return (
     <svg
+      ref={ref}
       viewBox={`0 0 ${width} ${height}`}
       className="w-full"
       style={{ height }}
       onMouseMove={(e) => {
         if (!onHover) return;
-        const rect = (e.target as SVGElement).ownerSVGElement!.getBoundingClientRect();
+        const rect = e.currentTarget.getBoundingClientRect();
         const x = ((e.clientX - rect.left) / rect.width) * width;
         const frac = (x - PAD.left) / w;
         onHover(frac < 0 || frac > 1 ? null : from + frac * (to - from));
@@ -294,7 +320,7 @@ export function StateRibbon({
 /** ROP against WOB, one dot per drilling minute, coloured by rotary speed. */
 export function Scatter({
   points,
-  width = 440,
+  width: propWidth = 440,
   height = 280,
   xLabel,
   yLabel,
@@ -310,6 +336,7 @@ export function Scatter({
   envelopeY?: number;
 }) {
   const [hover, setHover] = useState<number | null>(null);
+  const [ref, width] = useMeasuredWidth<SVGSVGElement>(propWidth);
   const P = { top: 12, right: 14, bottom: 34, left: 48 };
 
   const { xs, ys, xTicks, yTicks } = useMemo(() => {
@@ -352,7 +379,7 @@ export function Scatter({
   };
 
   return (
-    <svg viewBox={`0 0 ${width} ${height}`} className="w-full" style={{ height }}>
+    <svg ref={ref} viewBox={`0 0 ${width} ${height}`} className="w-full" style={{ height }}>
       {yTicks.map((v) => (
         <g key={`y${v}`}>
           <line x1={P.left} x2={width - P.right} y1={ys(v)} y2={ys(v)} stroke="var(--line-soft)" />

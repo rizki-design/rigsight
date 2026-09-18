@@ -53,9 +53,14 @@ export function DdrAssistant({ meta }: { meta: { well: string; rig: string } }) 
   const [synthesise, setSynthesise] = useState(false);
   const [wellFilter, setWellFilter] = useState<string>("");
   const endRef = useRef<HTMLDivElement>(null);
+  // Scrolls to the TOP of the newest turn, not the bottom of the container - an
+  // answer can now run to several citation cards, and snapping to the very end just
+  // shows its tail instead of the response itself.
+  const lastTurnRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    if (turns.length) lastTurnRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    else endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [turns, busy]);
 
   async function ask(q: string) {
@@ -90,7 +95,7 @@ export function DdrAssistant({ meta }: { meta: { well: string; rig: string } }) 
   }
 
   return (
-    <div className="grid lg:grid-cols-[1fr_320px] gap-4 items-start">
+    <div>
       <div className="panel flex flex-col" style={{ height: "min(72vh, 760px)" }}>
         <div className="p-3 border-b flex flex-wrap items-center gap-3" style={{ borderColor: "var(--line)" }}>
           <div>
@@ -147,13 +152,13 @@ export function DdrAssistant({ meta }: { meta: { well: string; rig: string } }) 
 
           {turns.map((t, i) =>
             t.role === "user" ? (
-              <div key={i} className="flex justify-end">
+              <div key={i} ref={i === turns.length - 1 ? lastTurnRef : undefined} className="flex justify-end">
                 <div className="max-w-[80%] px-3 py-2 rounded-lg text-[12px]" style={{ background: "var(--accent-dim)", color: "#e6f6ff" }}>
                   {t.text}
                 </div>
               </div>
             ) : (
-              <div key={i} className="space-y-2">
+              <div key={i} ref={i === turns.length - 1 ? lastTurnRef : undefined} className="space-y-2">
                 <div className="px-3 py-2 rounded-lg text-[12px] whitespace-pre-wrap" style={{ background: "var(--panel-2)" }}>
                   {t.text}
                 </div>
@@ -171,11 +176,11 @@ export function DdrAssistant({ meta }: { meta: { well: string; rig: string } }) 
                   </p>
                 )}
                 {t.citations && t.citations.length > 0 && (
-                  <details className="text-[11px]">
-                    <summary className="cursor-pointer" style={{ color: "var(--accent)" }}>
-                      {t.citations.length} cited report lines
-                    </summary>
-                    <div className="mt-2 space-y-2">
+                  <div className="text-[11px]">
+                    <div className="mb-1" style={{ color: "var(--dim)" }}>
+                      {t.citations.length} matching report line{t.citations.length === 1 ? "" : "s"}, closest first:
+                    </div>
+                    <div className="space-y-2">
                       {t.citations.map((c) => (
                         <div key={c.row} className="p-2 rounded border" style={{ borderColor: "var(--line)", background: "var(--panel-2)" }}>
                           <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mb-1 text-[10px]">
@@ -205,7 +210,7 @@ export function DdrAssistant({ meta }: { meta: { well: string; rig: string } }) 
                         </div>
                       ))}
                     </div>
-                  </details>
+                  </div>
                 )}
               </div>
             ),
@@ -245,33 +250,6 @@ export function DdrAssistant({ meta }: { meta: { well: string; rig: string } }) 
             Ask
           </button>
         </form>
-      </div>
-
-      <div className="panel p-3 space-y-3 text-[11px]">
-        <h3 className="text-[12px] font-semibold" style={{ color: "var(--text)" }}>
-          How this works
-        </h3>
-        <p style={{ color: "var(--muted)" }}>
-          BM25 lexical retrieval over the <code style={{ color: "var(--accent)" }}>COM</code> narrative, with the coded
-          columns indexed alongside it so <code style={{ color: "var(--accent)" }}>EQRPR</code> or a hole size matches
-          even when the prose never spells it out.
-        </p>
-        <p style={{ color: "var(--muted)" }}>
-          Not a vector store, deliberately. 568 rows do not need an approximate index, and these questions are dominated
-          by exact rare tokens - depths, activity codes, tool names - which is exactly where dense retrieval
-          underperforms BM25. The one thing lexical search genuinely loses is vocabulary mismatch, which is handled with
-          an explicit drilling synonym list a drilling engineer can read and correct.
-        </p>
-        <p style={{ color: "var(--muted)" }}>
-          At field scale this becomes hybrid retrieval - BM25 for rare exact tokens, embeddings for paraphrase, fused by
-          reciprocal rank.
-        </p>
-        <div className="pt-2 border-t" style={{ borderColor: "var(--line)" }}>
-          <p style={{ color: "var(--dim)" }}>
-            Also available as <code style={{ color: "var(--accent)" }}>POST /api/ddr/query</code> with filters for well,
-            rig, activity, phase, hole size, NPT, time range and depth range.
-          </p>
-        </div>
       </div>
     </div>
   );

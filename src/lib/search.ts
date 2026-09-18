@@ -378,7 +378,7 @@ function snippet(text: string, terms: string[], width = 240): string {
  */
 export function composeAnswer(hits: SearchHit[]): string {
   if (!hits.length) {
-    return "Nothing in the daily drilling reports matches that. Try naming an activity code (EQRPR, TOH, DRLDD), a well (SEBL_001, SEBL_002), a hole size, or a depth range.";
+    return "I couldn't find anything in the daily drilling reports matching that. Try naming an activity code (EQRPR, TOH, DRLDD), a well (SEBL_001, SEBL_002), a hole size, or a depth range.";
   }
 
   const nptHits = hits.filter((h) => h.row.nptHrs > 0);
@@ -391,24 +391,16 @@ export function composeAnswer(hits: SearchHit[]): string {
   };
   const d = (t: number) => new Date(t).toISOString().slice(0, 16).replace("T", " ");
 
+  // The matched rows themselves are rendered as citation cards, not repeated here as a
+  // second plain-text list - this stays a short synthesis of what they show.
   const lines: string[] = [];
   lines.push(
-    `${hits.length} report line${hits.length === 1 ? "" : "s"} match, on ${wells.join(" and ")} between ${d(span.from)} and ${d(span.to)} (rig time). Activity codes involved: ${activities.join(", ")}.`,
+    `I found ${hits.length} report line${hits.length === 1 ? "" : "s"} on ${wells.join(" and ")}, spanning ${d(span.from)} to ${d(span.to)} (rig time), under activity code${activities.length === 1 ? "" : "s"} ${activities.join(", ")}.`,
   );
 
   if (nptHits.length) {
     lines.push(
-      `${nptHits.length} of them carry non-productive time, ${totalNpt.toFixed(2)} hours in total. The largest is ${nptHits[0].row.nptHrs} hr on ${d(nptHits[0].row.start)} under ${nptHits[0].row.activity}.`,
-    );
-  }
-
-  lines.push("");
-  lines.push("Top matches:");
-  for (const h of hits.slice(0, 5)) {
-    const npt = h.row.nptHrs > 0 ? `, ${h.row.nptHrs} hr NPT` : "";
-    const depth = h.row.depthFt ? `, ${h.row.depthFt} ft` : "";
-    lines.push(
-      `- [${h.row.idx}] ${d(h.row.start)} - ${h.row.well} / ${h.row.rig} - ${h.row.activity} (${h.row.durationHrs} hr${npt}${depth})\n  ${h.snippet}`,
+      `${nptHits.length} of those involve${nptHits.length === 1 ? "s" : ""} non-productive time - ${totalNpt.toFixed(2)} hours in total. The biggest single stretch was ${nptHits[0].row.nptHrs} hr on ${d(nptHits[0].row.start)}, under ${nptHits[0].row.activity}.`,
     );
   }
 
